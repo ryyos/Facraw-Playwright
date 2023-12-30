@@ -27,7 +27,7 @@ class Browser:
         await login_page.get_by_label('Password').fill(self.PASS)
         await login_page.locator('#loginbutton').click()
         
-        await asyncio.sleep(10)
+        await asyncio.sleep(20)
         ic('finish')
         return browser
 
@@ -36,20 +36,15 @@ class Browser:
         browser_before_login = await self.__playwright.chromium.launch(headless=False, args=['--window-position=-8,-2'])
         browser_before_login = await browser_before_login.new_context()
 
-        # proces1 = asyncio.create_task(self.page1(await browser.new_page()))
-        # proces2 = asyncio.create_task(self.page2(await browser.new_page()))
-
-        # await proces1
-        # await proces2
-
         browser = await self.login(browser=browser_before_login)
-
+        cookies = await browser.cookies('https://www.facebook.com/home.php')
+        ic(cookies)
         try:
             while True:
                 facebook = self.facebook()
                 try:
 
-                    await facebook.main(browser)
+                    # await facebook.main(browser)
 
                     ic('new sessions')
 
