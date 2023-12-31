@@ -1,4 +1,7 @@
+import json
 import asyncio
+
+from time import time
 from importlib import reload
 from icecream import ic
 from playwright.async_api import async_playwright, BrowserContext
@@ -17,8 +20,12 @@ class Browser:
         from src.service.facebook import Facebook
         facebook = Facebook()
         return facebook
+    
+
+
 
     async def login(self, browser: BrowserContext):
+
         login_page = await browser.new_page()
 
         await login_page.set_viewport_size({"width":1919, "height":1050})
@@ -31,20 +38,39 @@ class Browser:
         ic('finish')
         return browser
 
+
+    async def set_cookies(self, browser: BrowserContext):
+        with open("data/cookies/cookies.json", "r") as f:
+            cookies = json.loads(f.read())
+            
+        for cookie in cookies:
+            ic(cookie["expires"])
+
+            if int(time()) > cookie["expires"]:
+                browser = await self.login(browser=browser)
+
+                with open("data/cookies/cookies.json", "w") as f:
+                    f.write(json.dumps(await browser.cookies()))
+
+        return browser
+
+
+        
+
+
     async def main(self):
         self.__playwright = await async_playwright().start()
         browser_before_login = await self.__playwright.chromium.launch(headless=False, args=['--window-position=-8,-2'])
         browser_before_login = await browser_before_login.new_context()
 
-        browser = await self.login(browser=browser_before_login)
-        cookies = await browser.cookies('https://www.facebook.com/home.php')
-        ic(cookies)
+        browser = await self.set_cookies(browser=browser_before_login)
+
         try:
             while True:
                 facebook = self.facebook()
                 try:
 
-                    # await facebook.main(browser)
+                    await facebook.main(browser)
 
                     ic('new sessions')
 
@@ -53,8 +79,8 @@ class Browser:
                     input('err')
 
         except KeyboardInterrupt:
-
-            await browser.close()
+            ic('stop')
+            await browser_before_login.close()
             await self.__playwright.stop()
 
 

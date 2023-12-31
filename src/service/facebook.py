@@ -65,6 +65,7 @@ class Facebook:
 
                 if not URL:
                     ic('not found')
+                    await asyncio.sleep(5)
                     URL = PyQuery(await page.inner_html('#facebook')).find(selector='img.x85a59c.x193iq5w.x4fas0m.x19kjcj4').attr('src')
                     await asyncio.sleep(5)
 
@@ -72,6 +73,7 @@ class Facebook:
 
                 self.__curl(path=f'data/image/{uuid4()}.jpg', url_image=URL)
 
+        page.close()
 
     async def fetch_card_image(self, browser: BrowserContext):
         page = await browser.new_page()
