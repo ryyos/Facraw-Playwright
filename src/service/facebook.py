@@ -18,10 +18,10 @@ from src.utils.File import File
 
 class Facebook:
     def __init__(self) -> None:
+        self.TOTAL_FETCH_IMAGE_WORKERS = 5
+
         self.__parser = Parser()
         self.__file = File()
-
-        self.target_groups = self.__file.read_json('target/groups/groups.json')
         self.target_media = os.listdir(path='target/image')
 
         self.search_url = 'https://www.facebook.com/search/groups/?q='
@@ -31,14 +31,14 @@ class Facebook:
     def __curl(self, path: str,url_image: str):
         request.urlretrieve(url_image, path)
 
-    def __url(self, path ):
+    def __url(self, path):
         with open(path, 'r') as file:
-            data = json.load(file)
+            data: list = json.load(file)
 
         ic(len(data))
         if not len(data): return False
 
-        url = random.choice(data)
+        url = data[0]
         data.remove(url)
         self.__file.write_json(path=path, content=data)
 
@@ -56,7 +56,11 @@ class Facebook:
         
             while True:
                 URL = self.__url(path=f'target/image/{media}')
-                if not URL: break
+
+                if not URL:
+                    os.rmdir(f'target/image/{media}')
+                    break
+
                 await page.goto(url=URL)
                 await page.wait_for_load_state('load', timeout=120000)
 
@@ -80,10 +84,12 @@ class Facebook:
         page.set_default_timeout(120000)
         await page.set_viewport_size({"width":1919, "height":1050})
 
-        ic(self.target_groups)
-        for group in self.target_groups:
-            self.target_groups.pop(0)
-            self.__file.write_json(path='target/groups/groups.json', content=self.target_groups)
+        while True:
+
+            group = self.__url(path='target/groups/groups.json')
+
+            if not group: break
+            
             URL = f'{group["url"]}media'
             ic(URL)
 
@@ -141,10 +147,8 @@ class Facebook:
 
         if not len(self.__file.read_json('target/groups/groups.json')):
             self.__file.write_json(path='target/groups/groups.json', content=results)
-            self.target_groups = self.__file.read_json('target/groups/groups.json')
 
 
-        input('Close.?')
         await page.close()
 
     async def main(self, browser: BrowserContext):
@@ -154,20 +158,15 @@ class Facebook:
 
         # fetch_card_image = asyncio.create_task(self.fetch_card_image(browser=browser))
         # await fetch_card_image
+
+        fetch_card_tasks = [asyncio.create_task(self.fetch_card_image(browser=browser)) for ]
+
         self.target_media = os.listdir(path='target/image')
 
-        fetch_image = asyncio.create_task(self.fetch_image(browser=browser, delay=1))
-        fetch_image2 = asyncio.create_task(self.fetch_image(browser=browser, delay=2))
-        fetch_image3 = asyncio.create_task(self.fetch_image(browser=browser, delay=3))
-        # fetch_image4 = asyncio.create_task(self.fetch_image(browser=browser, delay=4))
-        # fetch_image5 = asyncio.create_task(self.fetch_image(browser=browser, delay=5))
-        
-        await fetch_image
-        await fetch_image2
-        await fetch_image3
-        # await fetch_image4
-        # await fetch_image5
+        tasks = [asyncio.create_task(self.fetch_image(browser=browser, delay=worker)) for worker in self.TOTAL_FETCH_IMAGE_WORKERS]
+        await asyncio.gather(*tasks)
 
+        
         input('confirm.?')
 
 

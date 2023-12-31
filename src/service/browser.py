@@ -10,8 +10,8 @@ from playwright.async_api import async_playwright, BrowserContext
 class Browser:
     def __init__(self) -> None:
         self.base_url = 'https://www.facebook.com'
-        self.EMAIL = 'xysryo@gmail.com'
-        self.PASS = '1217481210'
+        
+        
         pass
 
     def facebook(self):
