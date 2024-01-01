@@ -1,6 +1,8 @@
 import json
 import asyncio
+import os
 
+from dotenv import *
 from time import time
 from importlib import reload
 from icecream import ic
@@ -9,10 +11,14 @@ from playwright.async_api import async_playwright, BrowserContext
 
 class Browser:
     def __init__(self) -> None:
+        load_dotenv()
+        self.FILE_ENV = find_dotenv()
+        self.EMAIL = os.getenv('EMAIL')
+        self.PASS = os.getenv('PASS')
+        self.COOKIES = json.loads(os.getenv('COOKIES'))
+        
         self.base_url = 'https://www.facebook.com'
         
-        
-        pass
 
     def facebook(self):
         from src.service import facebook
@@ -40,22 +46,24 @@ class Browser:
 
 
     async def set_cookies(self, browser: BrowserContext):
-        with open("data/cookies/cookies.json", "r") as f:
-            cookies = json.loads(f.read())
             
-        for cookie in cookies:
+        if not self.COOKIES:
+            ic('null cookies')
+            browser = await self.login(browser=browser)
+            os.environ['COOKIES'] = json.dumps(await browser.cookies())
+            set_key(self.FILE_ENV, 'COOKIES', os.environ['COOKIES'])
+
+        for cookie in self.COOKIES:
             ic(cookie["expires"])
-
-            if int(time()) > cookie["expires"]:
+            
+            ic(int(time()) > int(cookie["expires"]) > 0)
+            if int(time()) > int(cookie["expires"]) > 0:
+                ic("masuk ex")
                 browser = await self.login(browser=browser)
-
-                with open("data/cookies/cookies.json", "w") as f:
-                    f.write(json.dumps(await browser.cookies()))
+                os.environ['COOKIES'] = json.dumps(await browser.cookies())
+                set_key(self.FILE_ENV, 'COOKIES', os.environ['COOKIES'])
 
         return browser
-
-
-        
 
 
     async def main(self):
@@ -66,6 +74,9 @@ class Browser:
         browser = await self.set_cookies(browser=browser_before_login)
 
         try:
+            ic('final')
+            page = await browser.new_page()
+            await page.goto('https://www.facebook.com/home.php')
             while True:
                 facebook = self.facebook()
                 try:

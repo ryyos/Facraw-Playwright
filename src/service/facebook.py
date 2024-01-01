@@ -11,6 +11,7 @@ from pyquery import PyQuery
 from datetime import datetime
 from time import time
 from playwright.async_api import BrowserContext
+from dotenv import load_dotenv
 
 from src.utils.Parser import Parser
 from src.utils.File import File
@@ -18,11 +19,14 @@ from src.utils.File import File
 
 class Facebook:
     def __init__(self) -> None:
-        self.TOTAL_FETCH_IMAGE_WORKERS = 5
+
+        self.TOTAL_FETCH_IMAGE_WORKERS = 3
+        self.TOTAL_FETCH_CARD_WORKERS = 3
 
         self.__parser = Parser()
         self.__file = File()
-        self.target_media = os.listdir(path='target/image')
+
+        self.target_media = None
 
         self.search_url = 'https://www.facebook.com/search/groups/?q='
         self.base_url = 'https://www.facebook.com'
@@ -153,14 +157,14 @@ class Facebook:
 
     async def main(self, browser: BrowserContext):
         
-        # fetch_group = asyncio.create_task(self.fetch_group(browser=browser, search='Freya JKT48'))
-        # await fetch_group
+        fetch_group = asyncio.create_task(self.fetch_group(browser=browser, search='Freya JKT48'))
+        await fetch_group
 
-        # fetch_card_image = asyncio.create_task(self.fetch_card_image(browser=browser))
-        # await fetch_card_image
+        fetch_card_image = asyncio.create_task(self.fetch_card_image(browser=browser))
+        await fetch_card_image
 
-        fetch_card_tasks = [asyncio.create_task(self.fetch_card_image(browser=browser)) for ]
-
+        tasks = [asyncio.create_task(self.fetch_card_image(browser=browser)) for worker in self.TOTAL_FETCH_CARD_WORKERS]
+        await asyncio.gather(*tasks)
         self.target_media = os.listdir(path='target/image')
 
         tasks = [asyncio.create_task(self.fetch_image(browser=browser, delay=worker)) for worker in self.TOTAL_FETCH_IMAGE_WORKERS]
