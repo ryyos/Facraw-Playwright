@@ -63,6 +63,8 @@ and to run the second and subsequent programs you can run it like this
 python main.py --search Freya_JKT48
 ```
 
+## Flags
+
 |    Flag    | Alias |         Descriptions          |          Example          |
 | :--------: | :---: | :---------------------------: | :-----------------------: |
 |  --email   |  -e   |  Insert your facebook email   | --email example@gmail.com |
