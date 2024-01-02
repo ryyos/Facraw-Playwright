@@ -18,6 +18,7 @@ from src.utils.Parser import Parser
 from src.utils.File import File
 from src.service.UrlParser import UrlParser
 from src.utils.Logs import logger
+from src.utils.named import vname
 
 
 class Facebook:
@@ -133,10 +134,10 @@ class Facebook:
                for id in tqdm(group['url_cards'], ascii=True, smoothing=0.1, total=len(group['url_cards']))]
             
             print()
-            logger.info(f'data saved in: data/json/{group["name"]}.json')
+            logger.info(f'data saved in: data/json/{vname(group["name"])}.json')
             print()
 
-            self.__file.write_json(path=f'data/json/{group["name"]}.json', content=group)
+            self.__file.write_json(path=f'data/json/{vname(group["name"])}.json', content=group)
 
 
     async def fetch_group(self, search: str, browser: BrowserContext):

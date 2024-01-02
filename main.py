@@ -10,6 +10,10 @@ from src import logger
 
 if __name__ == '__main__':
 
+    if not os.path.exists('data'):
+        os.mkdir('data')
+        os.mkdir('data/immage')
+        os.mkdir('data/json')
     
     if not os.path.exists(path='.env'):
         arg = ArgumentParserCustom(description='To run the program for the first time, please enter the flag according to the provisions')
@@ -39,4 +43,4 @@ if __name__ == '__main__':
     
 
     browser = Browser()
-    asyncio.run(browser.main(search=args.search))
+    asyncio.run(browser.main(search=args.search.replace('_', ' ')))
