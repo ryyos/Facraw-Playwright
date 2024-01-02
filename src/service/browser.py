@@ -8,19 +8,23 @@ from importlib import reload
 from icecream import ic
 from playwright.async_api import async_playwright, BrowserContext
 
+from src.utils.Logs import logger
 
 class Browser:
     def __init__(self) -> None:
+
         load_dotenv()
         self.FILE_ENV = find_dotenv()
         self.EMAIL = os.getenv('EMAIL')
         self.PASS = os.getenv('PASS')
         self.COOKIES = json.loads(os.getenv('COOKIES'))
         
-        self.base_url = 'https://www.facebook.com'
+        self.base_url = 'https://web.facebook.com'
         
 
     def facebook(self):
+        logger.info('reload facebook crawler')
+        print()
         from src.service import facebook
         facebook = reload(facebook)
         from src.service.facebook import Facebook
@@ -41,32 +45,69 @@ class Browser:
         await login_page.locator('#loginbutton').click()
         
         await asyncio.sleep(20)
-        ic('finish')
         return browser
 
 
     async def set_cookies(self, browser: BrowserContext):
             
+        logger.info('check facebook cookies')
+        print()
+        
         if not self.COOKIES:
-            ic('null cookies')
+
+            logger.warning('cookies not found')
+            logger.warning('Login attempt to retrieve cookies')
+            print()
+
             browser = await self.login(browser=browser)
             os.environ['COOKIES'] = json.dumps(await browser.cookies())
             set_key(self.FILE_ENV, 'COOKIES', os.environ['COOKIES'])
+            self.COOKIES = json.loads(os.getenv('COOKIES'))
+
+            logger.info('login successful')
+            logger.info('Cookies updated successfully')
+            print()
+
+            return browser
+
+        
+        logger.info('cookies found')
+        logger.info('check expired cookies')
+        print()
 
         for cookie in self.COOKIES:
-            ic(cookie["expires"])
+
+            logger.info(f'{cookie["name"]}: {int(cookie["expires"])}')
             
-            ic(int(time()) > int(cookie["expires"]) > 0)
             if int(time()) > int(cookie["expires"]) > 0:
-                ic("masuk ex")
+
+                logger.warning(f'{cookie["name"]} expired')
+                logger.warning('Login attempt to retrieve cookies')
+                print()
+                
                 browser = await self.login(browser=browser)
                 os.environ['COOKIES'] = json.dumps(await browser.cookies())
                 set_key(self.FILE_ENV, 'COOKIES', os.environ['COOKIES'])
+                self.COOKIES = json.loads(os.getenv('COOKIES'))
+                logger.info('login successful')
+                logger.info('Cookies updated successfully')
+                print()
+
+        logger.info('cookies activated')
+        logger.info('add cookies in browser')
+        print()
+
+        await browser.add_cookies(self.COOKIES)
 
         return browser
 
 
-    async def main(self):
+    async def main(self, search: str):
+
+        logger.info('Facebook Scraper Start..')
+        logger.info('Playwright Started..')
+        print()
+
         self.__playwright = await async_playwright().start()
         browser_before_login = await self.__playwright.chromium.launch(headless=False, args=['--window-position=-8,-2'])
         browser_before_login = await browser_before_login.new_context()
@@ -74,16 +115,13 @@ class Browser:
         browser = await self.set_cookies(browser=browser_before_login)
 
         try:
-            ic('final')
-            page = await browser.new_page()
-            await page.goto('https://www.facebook.com/home.php')
+            
             while True:
                 facebook = self.facebook()
                 try:
 
-                    await facebook.main(browser)
-
-                    ic('new sessions')
+                    result = await facebook.main(browser, search=search, cookies=os.getenv('COOKIES'))
+                    if result: break
 
                 except Exception as err:
                     ic(err)

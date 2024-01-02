@@ -12,17 +12,21 @@ from datetime import datetime
 from time import time
 from playwright.async_api import BrowserContext
 from dotenv import load_dotenv
+from tqdm import tqdm
 
 from src.utils.Parser import Parser
 from src.utils.File import File
+from src.service.UrlParser import UrlParser
+from src.utils.Logs import logger
 
 
 class Facebook:
     def __init__(self) -> None:
 
-        self.TOTAL_FETCH_IMAGE_WORKERS = 3
-        self.TOTAL_FETCH_CARD_WORKERS = 3
+        self.TOTAL_FETCH_IMAGE_WORKERS = 2
+        self.TOTAL_FETCH_CARD_WORKERS = 2
 
+        self.__url_parser = UrlParser()
         self.__parser = Parser()
         self.__file = File()
 
@@ -30,16 +34,19 @@ class Facebook:
 
         self.search_url = 'https://www.facebook.com/search/groups/?q='
         self.base_url = 'https://www.facebook.com'
-        pass
+
 
     def __curl(self, path: str,url_image: str):
         request.urlretrieve(url_image, path)
 
+
     def __url(self, path):
-        with open(path, 'r') as file:
+        with open(path, 'r', encoding='utf-8') as file:
             data: list = json.load(file)
 
-        ic(len(data))
+        logger.info(f'data remaining: {len(data)}')
+        print()
+
         if not len(data): return False
 
         url = data[0]
@@ -47,6 +54,15 @@ class Facebook:
         self.__file.write_json(path=path, content=data)
 
         return url
+    
+
+    def __build_cookies(self, cookies: str) -> str:
+        formatted_cookies = ''
+        for cookie in json.loads(cookies):
+            formatted_cookies += f'{cookie["name"]}={cookie["value"]}; '
+
+        
+        return formatted_cookies.rstrip('; ').replace(' ', '')
 
 
     async def fetch_image(self, browser: BrowserContext, delay: int):
@@ -56,7 +72,6 @@ class Facebook:
 
         for media in self.target_media:
             await asyncio.sleep(delay)
-            ic(media)
         
             while True:
                 URL = self.__url(path=f'target/image/{media}')
@@ -77,25 +92,24 @@ class Facebook:
                     URL = PyQuery(await page.inner_html('#facebook')).find(selector='img.x85a59c.x193iq5w.x4fas0m.x19kjcj4').attr('src')
                     await asyncio.sleep(5)
 
-                ic(URL)
-
                 self.__curl(path=f'data/image/{uuid4()}.jpg', url_image=URL)
 
         page.close()
 
-    async def fetch_card_image(self, browser: BrowserContext):
+    async def extract_image(self, browser: BrowserContext, cookie):
         page = await browser.new_page()
         page.set_default_timeout(120000)
         await page.set_viewport_size({"width":1919, "height":1050})
 
         while True:
-
-            group = self.__url(path='target/groups/groups.json')
+            
+            group: dict = self.__url(path='target/groups/groups.json')
 
             if not group: break
+            if group['status'] == 'Private': continue
             
+
             URL = f'{group["url"]}media'
-            ic(URL)
 
             await page.goto(URL)
 
@@ -108,11 +122,21 @@ class Facebook:
                 if last == new_height: break
                 last = new_height
 
-            urls_card = [f"{self.base_url}{PyQuery(card).attr('href')}" for card in PyQuery(await page.inner_html('#facebook')).find(selector='div.x1qjc9v5.x1q0q8m5.x1qhh985.xu3j5b3.xcfux6l.x26u7qi.xm0m39n.x13fuv20.x972fbf.x1ey2m1c.x9f619.x78zum5.xds687c.xdt5ytf.x1iyjqo2.xs83m0k.x1qughib.xat24cr.x11i5rnm.x1mh8g0r.xdj266r.x2lwn1j.xeuugli.x18d9i69.x4uap5.xkhd6sd.xexx8yu.x10l6tqk.x17qophe.x13vifvy.x1ja2u2z a.x1i10hfl.x1qjc9v5.xjbqb8w.xjqpnuy.xa49m3k.xqeqjp1.x2hbi6w.x13fuv20.xu3j5b3.x1q0q8m5.x26u7qi.x972fbf.xcfux6l.x1qhh985.xm0m39n.x9f619.x1ypdohk.xdl72j9.x2lah0s.xe8uvvx.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.x2lwn1j.xeuugli.xexx8yu.x4uap5.x18d9i69.xkhd6sd.x1n2onr6.x16tdsg8.x1hl2dhg.xggy1nq.x1ja2u2z.x1t137rt.x1o1ewxj.x3x9cwd.x1e5q0jg.x13rtm0m.x1q0g3np.x87ps6o.x1lku1pv.x1rg5ohu.x1a2a7pz')]
 
-            self.__file.write_json(path=f'target/image/{group["name"]}.json', content=urls_card)
+            group['url_cards'] = [f"{self.base_url}{PyQuery(card).attr('href')}" for card in tqdm(PyQuery(await page.inner_html('#facebook')).find(selector='div.x1qjc9v5.x1q0q8m5.x1qhh985.xu3j5b3.xcfux6l.x26u7qi.xm0m39n.x13fuv20.x972fbf.x1ey2m1c.x9f619.x78zum5.xds687c.xdt5ytf.x1iyjqo2.xs83m0k.x1qughib.xat24cr.x11i5rnm.x1mh8g0r.xdj266r.x2lwn1j.xeuugli.x18d9i69.x4uap5.xkhd6sd.xexx8yu.x10l6tqk.x17qophe.x13vifvy.x1ja2u2z a.x1i10hfl.x1qjc9v5.xjbqb8w.xjqpnuy.xa49m3k.xqeqjp1.x2hbi6w.x13fuv20.xu3j5b3.x1q0q8m5.x26u7qi.x972fbf.xcfux6l.x1qhh985.xm0m39n.x9f619.x1ypdohk.xdl72j9.x2lah0s.xe8uvvx.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.x2lwn1j.xeuugli.xexx8yu.x4uap5.x18d9i69.xkhd6sd.x1n2onr6.x16tdsg8.x1hl2dhg.xggy1nq.x1ja2u2z.x1t137rt.x1o1ewxj.x3x9cwd.x1e5q0jg.x13rtm0m.x1q0g3np.x87ps6o.x1lku1pv.x1rg5ohu.x1a2a7pz'), \
+                                    ascii=True, smoothing=0.1)]
 
+            logger.info(f'total images obtained: {len(group["url_cards"])}')
+            print()
 
+            group['urls_images'] = [self.__url_parser.ex(path='data/image', image_id=id.split("fbid=")[1].split("&")[0], media_token=id.split("=")[-1], cookies=cookie, url_card=id) 
+               for id in tqdm(group['url_cards'], ascii=True, smoothing=0.1, total=len(group['url_cards']))]
+            
+            print()
+            logger.info(f'data saved in: data/json/{group["name"]}.json')
+            print()
+
+            self.__file.write_json(path=f'data/json/{group["name"]}.json', content=group)
 
 
     async def fetch_group(self, search: str, browser: BrowserContext):
@@ -122,13 +146,11 @@ class Facebook:
 
         URL = self.search_url+search
 
-        ic(URL)
         await page.goto(url=URL)
         await asyncio.sleep(10)
 
         for _ in range(5):
             await page.evaluate("window.scrollTo(0, document.querySelector('#facebook div > div.x9f619.x1n2onr6.x1ja2u2z.xdt5ytf.x193iq5w.xeuugli.x1r8uery.x1iyjqo2.xs83m0k.x78zum5.x1t2pt76 > div > div > div > div > div').scrollHeight)")
-            ic('scroll')
             await asyncio.sleep(3)
             
 
@@ -147,33 +169,39 @@ class Facebook:
              }for component in cards
         ]
 
-        ic(results)
+        logger.info(f'Total Groups Found: {len(results)}')
+        logger.info(f'Update Groups target')
+        print()
 
-        if not len(self.__file.read_json('target/groups/groups.json')):
-            self.__file.write_json(path='target/groups/groups.json', content=results)
-
+        
+        self.__file.write_json(path='target/groups/groups.json', content=results)
 
         await page.close()
 
-    async def main(self, browser: BrowserContext):
+    async def main(self, browser: BrowserContext, cookies: str, search: str):
         
-        fetch_group = asyncio.create_task(self.fetch_group(browser=browser, search='Freya JKT48'))
-        await fetch_group
 
-        fetch_card_image = asyncio.create_task(self.fetch_card_image(browser=browser))
-        await fetch_card_image
+        TARGET_GROUPS = len(self.__file.read_json('target/groups/groups.json'))
 
-        tasks = [asyncio.create_task(self.fetch_card_image(browser=browser)) for worker in self.TOTAL_FETCH_CARD_WORKERS]
-        await asyncio.gather(*tasks)
-        self.target_media = os.listdir(path='target/image')
+        if not TARGET_GROUPS:
+            await asyncio.create_task(self.fetch_group(browser=browser, search=search))
 
-        tasks = [asyncio.create_task(self.fetch_image(browser=browser, delay=worker)) for worker in self.TOTAL_FETCH_IMAGE_WORKERS]
-        await asyncio.gather(*tasks)
+        logger.info(f'do a group fetch with the search keyword: {search}')
+        logger.info(f'Total Target Groups: {TARGET_GROUPS}')
+        print()
+
+        logger.info('image fetch preparation')
+        logger.info(f'Total Workers: {self.TOTAL_FETCH_CARD_WORKERS}')
+        print()
+
+        tasks = asyncio.create_task(self.extract_image(browser=browser, cookie=self.__build_cookies(cookies=cookies)))
+        await tasks
+        
+        # tasks = [asyncio.create_task(self.fetch_image(browser=browser, delay=worker)) for worker in self.TOTAL_FETCH_IMAGE_WORKERS]
+        # await asyncio.gather(*tasks)
 
         
-        input('confirm.?')
+        logger.info('facebook scraper completed')
 
-
-
-facebook = Facebook()
+        return True
 
